@@ -1,0 +1,49 @@
+---
+import Base from '../../layouts/Base.astro';
+import ImageViewer from '../../components/viewers/ImageViewer.astro';
+import VideoPlayer from '../../components/viewers/VideoPlayer.astro';
+import PdfViewer from '../../components/viewers/PdfViewer.astro';
+import TextViewer from '../../components/viewers/TextViewer.astro';
+import { ready, getItemById, getMediaIndex, slugToId } from '../../lib/scanner.js';
+
+await ready;
+
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/');
+
+// In dev mode, Vite strips file-extension URLs before SSR routing. The
+// media-viewer-file-ext Vite plugin (enforce:'pre') intercepts /media/*.ext
+// requests, strips the extension from the URL so Astro can route it, and
+// carries the original slug in this header for the correct item lookup.
+const effectiveSlug = Astro.request.headers.get('x-media-slug') ?? slug;
+const item = getItemById(slugToId(effectiveSlug));
+if (!item) return new Response('Not found', { status: 404 });
+
+// Find adjacent items in same category for image navigation
+const { allItems } = getMediaIndex();
+const siblings = allItems.filter(
+  (i) =>
+    i.type === 'image' &&
+    i.categoryPath.join('/') === item.categoryPath.join('/'),
+);
+siblings.sort((a, b) => b.mtime - a.mtime);
+
+const currentIndex = siblings.findIndex((i) => i.id === item.id);
+const prevId = currentIndex > 0                  ? siblings[currentIndex - 1].id : null;
+const nextId = currentIndex < siblings.length - 1 ? siblings[currentIndex + 1].id : null;
+---
+
+<Base title={item.title}>
+  {item.type === 'image' && (
+    <ImageViewer item={item} prevId={prevId} nextId={nextId} />
+  )}
+  {item.type === 'video' && (
+    <VideoPlayer item={item} />
+  )}
+  {item.type === 'pdf' && (
+    <PdfViewer item={item} />
+  )}
+  {item.type === 'text' && (
+    <TextViewer item={item} />
+  )}
+</Base>

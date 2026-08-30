@@ -1,0 +1,66 @@
+---
+import Base from '../layouts/Base.astro';
+import HeroBanner from '../components/HeroBanner.astro';
+import CategoryRow from '../components/CategoryRow.astro';
+import SearchBar from '../components/SearchBar.astro';
+import { ready, getMediaIndex, getRecentItems } from '../lib/scanner.js';
+
+await ready;
+
+const { rootCategories, allItems } = getMediaIndex();
+const recentItems  = getRecentItems(20);
+const images       = allItems.filter((i) => i.type === 'image');
+const heroItem     = images.length > 0
+  ? images[Math.floor(Math.random() * images.length)]
+  : null;
+---
+
+<Base>
+  {heroItem && <HeroBanner item={heroItem} />}
+
+  <SearchBar>
+    <div class="py-6">
+      {rootCategories.length === 0 && allItems.length === 0 ? (
+        <div class="flex flex-col items-center justify-center py-20 text-gray-500">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 mb-4 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+            <path d="M3 3h18v18H3zM9 9h6M9 12h6M9 15h4" />
+          </svg>
+          <p class="text-lg font-medium">No media found</p>
+          <p class="text-sm mt-1">Add files to the <code class="bg-netflix-card px-1 rounded">media/</code> folder and restart.</p>
+        </div>
+      ) : (
+        <>
+          {recentItems.length > 1 && (
+            <section class="px-6 mb-8">
+              <h2 class="text-lg font-semibold mb-3">Recently Added</h2>
+              <div class="category-row__scroll" data-sortable>
+                {recentItems.map((item) => {
+                  // Inline card to avoid async in loops
+                  return (
+                    <a href={`/media/${item.id}`} class="media-card group block flex-none w-40 sm:w-48 lg:w-56" data-title={item.title} data-mtime={item.mtime}>
+                      <div class="relative w-full aspect-video bg-netflix-card rounded overflow-hidden">
+                        <img
+                          src={`/api/thumbnail/${item.id}`}
+                          alt={item.title}
+                          loading="lazy"
+                          class="w-full h-full object-cover"
+                          onerror="this.src='/placeholder-thumb.svg'"
+                        />
+                        <span class={`badge badge--${item.type} absolute top-1.5 left-1.5`}>{item.type}</span>
+                      </div>
+                      <p class="mt-1.5 text-sm text-gray-300 truncate group-hover:text-white">{item.title}</p>
+                    </a>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {rootCategories.map((cat) => (
+            <CategoryRow category={cat} />
+          ))}
+        </>
+      )}
+    </div>
+  </SearchBar>
+</Base>

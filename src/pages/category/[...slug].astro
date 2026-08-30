@@ -1,0 +1,76 @@
+---
+import Base from '../../layouts/Base.astro';
+import MediaCard from '../../components/MediaCard.astro';
+import CategoryRow from '../../components/CategoryRow.astro';
+import SortControls from '../../components/SortControls.astro';
+import { ready, getCategoryBySlug } from '../../lib/scanner.js';
+
+await ready;
+
+const { slug } = Astro.params;
+// Astro decodes [...slug] params (e.g. "Lego%20Books" → "Lego Books").
+// Re-encode each segment to match the stored encoded slugs.
+const encodedSlug = (slug || '').split('/').map((s) => {
+  try { return encodeURIComponent(decodeURIComponent(s)); }
+  catch { return encodeURIComponent(s); }
+}).join('/');
+const category = getCategoryBySlug(encodedSlug);
+
+if (!category) {
+  return Astro.redirect('/');
+}
+
+// Build breadcrumb from slug
+const breadcrumb = category.path.split('/').filter(Boolean);
+---
+
+<Base title={category.name}>
+  <div class="px-6 py-6">
+    <!-- Breadcrumb -->
+    <nav class="flex items-center gap-2 text-sm text-gray-500 mb-6">
+      <a href="/" class="hover:text-white transition-colors">Home</a>
+      {breadcrumb.map((seg, i) => {
+        const partialSlug = breadcrumb.slice(0, i + 1).map(encodeURIComponent).join('/');
+        const isLast = i === breadcrumb.length - 1;
+        return (
+          <>
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+            {isLast ? (
+              <span class="text-white font-medium">{seg}</span>
+            ) : (
+              <a href={`/category/${partialSlug}`} class="hover:text-white transition-colors">{seg}</a>
+            )}
+          </>
+        );
+      })}
+    </nav>
+
+    <div class="flex items-baseline justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold mb-1">{category.name}</h1>
+        <p class="text-gray-500 text-sm">{category.totalItems} item{category.totalItems !== 1 ? 's' : ''}</p>
+      </div>
+      <SortControls />
+    </div>
+
+    <!-- Direct items grid -->
+    {category.items.length > 0 && (
+      <div data-sortable class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mb-8">
+        {category.items.map((item) => (
+          <MediaCard item={item} />
+        ))}
+      </div>
+    )}
+
+    <!-- Subcategory rows -->
+    {category.subcategories.map((sub) => (
+      <CategoryRow category={sub} />
+    ))}
+
+    {category.items.length === 0 && category.subcategories.length === 0 && (
+      <p class="text-gray-500">This category is empty.</p>
+    )}
+  </div>
+</Base>

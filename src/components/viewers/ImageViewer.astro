@@ -1,0 +1,181 @@
+---
+import type { MediaItem, ImageMeta } from '../../lib/scanner.js';
+
+interface Props {
+  item: MediaItem;
+  prevId?: string | null;
+  nextId?: string | null;
+}
+
+const { item, prevId, nextId } = Astro.props;
+const meta = item.metadata as ImageMeta;
+const src  = `/api/media/${item.id}`;
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+const hasExif = !!meta.exif && Object.keys(meta.exif).length > 0;
+---
+
+<div class="viewer-overlay flex-col" id="image-viewer">
+  <!-- Top bar -->
+  <div class="absolute top-0 inset-x-0 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/70 to-transparent z-10">
+    <a href="/" class="text-gray-400 hover:text-white flex items-center gap-2 text-sm">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 12H5M12 19l-7-7 7-7" />
+      </svg>
+      Back
+    </a>
+    <h1 class="text-sm font-medium truncate mx-4 max-w-md">{item.title}</h1>
+    <!-- EXIF toggle -->
+    <button id="exif-toggle" class="text-gray-400 hover:text-white text-sm flex items-center gap-1">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" />
+      </svg>
+      Info
+    </button>
+  </div>
+
+  <!-- Main image with pinch/zoom -->
+  <div class="flex-1 flex items-center justify-center overflow-hidden w-full relative" id="zoom-container">
+    <img
+      id="viewer-img"
+      src={src}
+      alt={item.title}
+      class="max-w-full max-h-full object-contain select-none"
+      draggable="false"
+    />
+  </div>
+
+  <!-- Navigation arrows -->
+  {prevId && (
+    <a
+      href={`/media/${prevId}`}
+      id="nav-prev"
+      class="absolute left-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 rounded-full p-3 transition-colors"
+      aria-label="Previous"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M15 18l-6-6 6-6" />
+      </svg>
+    </a>
+  )}
+  {nextId && (
+    <a
+      href={`/media/${nextId}`}
+      id="nav-next"
+      class="absolute right-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 rounded-full p-3 transition-colors"
+      aria-label="Next"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 18l6-6-6-6" />
+      </svg>
+    </a>
+  )}
+
+  <!-- Info / EXIF panel — always rendered so the Info button always works,
+       even for images without EXIF (e.g. wallpapers). -->
+  <div
+    id="exif-panel"
+    class="hidden absolute right-0 top-0 bottom-0 w-64 bg-black/90 border-l border-gray-800 overflow-y-auto p-4 text-sm"
+  >
+    <h2 class="font-semibold mb-3">Info</h2>
+    {meta.width && meta.height && (
+      <div class="mb-2">
+        <span class="text-gray-400">Resolution</span>
+        <p>{meta.width} × {meta.height}</p>
+      </div>
+    )}
+    <div class="mb-2">
+      <span class="text-gray-400">Type</span>
+      <p class="uppercase">{item.type}</p>
+    </div>
+    <div class="mb-2">
+      <span class="text-gray-400">Size</span>
+      <p>{formatSize(item.size)}</p>
+    </div>
+    <div class="mb-2">
+      <span class="text-gray-400">File</span>
+      <p class="break-words">{item.path}</p>
+    </div>
+
+    {hasExif ? (
+      <>
+        <h3 class="font-semibold mt-4 mb-2 border-t border-gray-800 pt-3">EXIF</h3>
+        {Object.entries(meta.exif!).map(([k, v]) => (
+          <div class="mb-2">
+            <span class="text-gray-400">{k}</span>
+            <p class="break-words">{String(v)}</p>
+          </div>
+        ))}
+      </>
+    ) : (
+      <p class="text-gray-500 mt-4 border-t border-gray-800 pt-3">No EXIF metadata</p>
+    )}
+  </div>
+</div>
+
+<script define:vars={{ prevId, nextId }}>
+  // Keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft'  && prevId) location.href = `/media/${prevId}`;
+    if (e.key === 'ArrowRight' && nextId) location.href = `/media/${nextId}`;
+    if (e.key === 'Escape') {
+      const panel = document.getElementById('exif-panel');
+      if (panel && !panel.classList.contains('hidden')) {
+        panel.classList.add('hidden');
+      } else {
+        location.href = '/';
+      }
+    }
+  });
+
+  // EXIF toggle
+  document.getElementById('exif-toggle')?.addEventListener('click', () => {
+    const panel = document.getElementById('exif-panel');
+    panel?.classList.toggle('hidden');
+  });
+
+  // Pinch / wheel zoom
+  const container = document.getElementById('zoom-container');
+  const img       = document.getElementById('viewer-img');
+  let scale = 1;
+  let tx = 0, ty = 0;
+
+  function applyTransform() {
+    img.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`;
+  }
+
+  container?.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 1.1 : 0.9;
+    scale = Math.min(Math.max(scale * delta, 0.5), 10);
+    applyTransform();
+  }, { passive: false });
+
+  // Touch pinch
+  let lastDist = 0;
+  container?.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      lastDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY,
+      );
+    }
+  });
+  container?.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY,
+      );
+      scale = Math.min(Math.max(scale * (dist / lastDist), 0.5), 10);
+      lastDist = dist;
+      applyTransform();
+    }
+  }, { passive: false });
+</script>

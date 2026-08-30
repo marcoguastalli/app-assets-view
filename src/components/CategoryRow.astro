@@ -1,0 +1,54 @@
+---
+import type { Category } from '../lib/scanner.js';
+import MediaCard from './MediaCard.astro';
+
+interface Props {
+  category: Category;
+}
+
+const { category } = Astro.props;
+const visibleItems = category.items;
+---
+
+{(visibleItems.length > 0 || category.subcategories.length > 0) && (
+  <section class="category-row px-6 mb-8">
+    <!-- Row header -->
+    <div class="flex items-center justify-between mb-3">
+      <a
+        href={`/category/${category.slug}`}
+        class="text-lg font-semibold hover:text-netflix-red transition-colors flex items-center gap-2 group"
+      >
+        {category.name}
+        {category.totalItems > 0 && (
+          <span class="text-sm text-gray-500 font-normal">({category.totalItems})</span>
+        )}
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M9 18l6-6-6-6" />
+        </svg>
+      </a>
+    </div>
+
+    <!-- Horizontal scroll of media cards -->
+    {visibleItems.length > 0 && (
+      <div class="category-row__scroll" data-sortable>
+        {visibleItems.map((item) => (
+          <MediaCard item={item} />
+        ))}
+      </div>
+    )}
+
+    <!-- Subcategory rows (one level deep) -->
+    {category.subcategories.map((sub) => (
+      <div class="mt-4 pl-4 border-l border-gray-700">
+        <Astro.self category={sub} />
+      </div>
+    ))}
+  </section>
+)}

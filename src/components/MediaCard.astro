@@ -1,0 +1,65 @@
+---
+import type { MediaItem } from '../lib/scanner.js';
+import { thumbnailUrl } from '../lib/thumbnails.js';
+import { formatDuration } from '../lib/metadata.js';
+
+interface Props {
+  item: MediaItem;
+}
+
+const { item } = Astro.props;
+const thumb = await thumbnailUrl(item);
+const href  = `/media/${item.id}`;
+
+const videoDuration =
+  item.type === 'video' && (item.metadata as { duration?: number }).duration
+    ? formatDuration((item.metadata as { duration: number }).duration)
+    : null;
+
+const pdfPages =
+  item.type === 'pdf' && (item.metadata as { pageCount?: number }).pageCount
+    ? `${(item.metadata as { pageCount: number }).pageCount}p`
+    : null;
+
+const textLines =
+  item.type === 'text' && (item.metadata as { lineCount?: number }).lineCount
+    ? `${(item.metadata as { lineCount: number }).lineCount}L`
+    : null;
+
+const overlay = videoDuration ?? pdfPages ?? textLines;
+---
+
+<a href={href} class="media-card group block" data-title={item.title} data-mtime={item.mtime}>
+  <!-- Thumbnail -->
+  <div class="relative w-full aspect-video bg-netflix-card rounded overflow-hidden">
+    <img
+      src={thumb}
+      alt={item.title}
+      loading="lazy"
+      decoding="async"
+      class="w-full h-full object-cover transition-opacity group-hover:opacity-90"
+      onerror="this.src='/placeholder-thumb.svg'"
+    />
+    <!-- Type badge -->
+    <span class={`badge badge--${item.type} absolute top-1.5 left-1.5`}>{item.type}</span>
+    <!-- Duration / page count overlay -->
+    {overlay && (
+      <span class="absolute bottom-1.5 right-1.5 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
+        {overlay}
+      </span>
+    )}
+    <!-- Play icon overlay on hover -->
+    <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+      <div class="bg-white/20 rounded-full p-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M8 5v14l11-7z" />
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Title -->
+  <p class="mt-1.5 text-sm text-gray-300 truncate group-hover:text-white transition-colors">
+    {item.title}
+  </p>
+</a>

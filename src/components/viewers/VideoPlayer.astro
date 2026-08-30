@@ -1,0 +1,76 @@
+---
+import type { MediaItem, VideoMeta } from '../../lib/scanner.js';
+import { formatDuration } from '../../lib/metadata.js';
+
+interface Props {
+  item: MediaItem;
+}
+
+const { item } = Astro.props;
+const meta = item.metadata as VideoMeta;
+const src  = `/api/media/${item.id}`;
+
+const resolution = meta.width && meta.height ? `${meta.width}×${meta.height}` : null;
+const duration   = meta.duration ? formatDuration(meta.duration) : null;
+---
+
+<div class="viewer-overlay flex-col bg-black" id="video-viewer">
+  <!-- Top bar -->
+  <div class="absolute top-0 inset-x-0 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/70 to-transparent z-10 pointer-events-none">
+    <a href="/" class="pointer-events-auto text-gray-400 hover:text-white flex items-center gap-2 text-sm">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 12H5M12 19l-7-7 7-7" />
+      </svg>
+      Back
+    </a>
+    <h1 class="text-sm font-medium truncate mx-4 max-w-md">{item.title}</h1>
+    <div class="text-xs text-gray-500 flex gap-3">
+      {resolution && <span>{resolution}</span>}
+      {duration   && <span>{duration}</span>}
+      {meta.codec && <span class="uppercase">{meta.codec}</span>}
+    </div>
+  </div>
+
+  <!-- Video element -->
+  <video
+    id="video-el"
+    class="w-full h-full object-contain"
+    controls
+    autoplay
+    preload="metadata"
+  >
+    <source src={src} />
+    Your browser does not support the video tag.
+  </video>
+</div>
+
+<script define:vars={{ itemId: item.id }}>
+  const video  = document.getElementById('video-el');
+  const storageKey = `assets-view:pos:${itemId}`;
+
+  // Restore saved position
+  const saved = parseFloat(localStorage.getItem(storageKey) || '0');
+  if (saved > 0) {
+    video.addEventListener('loadedmetadata', () => {
+      if (saved < video.duration - 5) video.currentTime = saved;
+    }, { once: true });
+  }
+
+  // Save position periodically and on pause
+  const savePos = () => localStorage.setItem(storageKey, String(video.currentTime));
+  video.addEventListener('pause', savePos);
+  video.addEventListener('ended', () => localStorage.removeItem(storageKey));
+  setInterval(savePos, 5000);
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !document.fullscreenElement) location.href = '/';
+    if (e.key === 'f' || e.key === 'F') {
+      if (!document.fullscreenElement) video.requestFullscreen();
+      else document.exitFullscreen();
+    }
+    if (e.key === 'ArrowLeft')  video.currentTime = Math.max(0, video.currentTime - 10);
+    if (e.key === 'ArrowRight') video.currentTime = Math.min(video.duration, video.currentTime + 10);
+    if (e.key === ' ') { e.preventDefault(); video.paused ? video.play() : video.pause(); }
+  });
+</script>

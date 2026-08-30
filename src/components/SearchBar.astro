@@ -1,0 +1,177 @@
+---
+import SortControls from './SortControls.astro';
+---
+
+<div id="search-bar" class="px-6 py-4 sticky top-16 z-30 bg-netflix-bg/95 backdrop-blur border-b border-gray-800">
+  <div class="flex flex-wrap items-center gap-3 max-w-4xl">
+    <!-- Search input -->
+    <div class="relative flex-1 min-w-48">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      >
+        <circle cx="11" cy="11" r="8" />
+        <path d="m21 21-4.35-4.35" />
+      </svg>
+      <input
+        id="search-input"
+        type="search"
+        placeholder="Search media..."
+        class="w-full bg-netflix-card border border-gray-700 rounded pl-9 pr-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-netflix-red"
+      />
+    </div>
+
+    <!-- Type filter buttons -->
+    <div class="flex gap-2" id="type-filters">
+      {(['all', 'image', 'video', 'pdf', 'text'] as const).map((t) => (
+        <button
+          data-type={t}
+          class={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+            t === 'all'
+              ? 'bg-netflix-red text-white'
+              : 'bg-netflix-card text-gray-400 hover:text-white hover:bg-netflix-hover'
+          }`}
+        >
+          {t === 'all' ? 'All' : t.charAt(0).toUpperCase() + t.slice(1) + 's'}
+        </button>
+      ))}
+    </div>
+
+    <div class="ml-auto">
+      <SortControls />
+    </div>
+  </div>
+
+  <!-- Search results (hidden by default) -->
+  <div
+    id="search-results"
+    class="hidden mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3"
+  ></div>
+  <p id="search-empty" class="hidden mt-4 text-gray-500 text-sm">No results found.</p>
+</div>
+
+<!-- Main content (hidden when searching) -->
+<div id="main-content">
+  <slot />
+</div>
+
+<script>
+  const input      = document.getElementById('search-input');
+  const results    = document.getElementById('search-results');
+  const emptyMsg   = document.getElementById('search-empty');
+  const mainContent= document.getElementById('main-content');
+  const filterBtns = document.querySelectorAll('#type-filters button');
+
+  let activeType = 'all';
+
+  // Fetch the search index lazily (and only once) the first time the user
+  // interacts with search, so it isn't inlined into every page load.
+  let indexError = false;
+  let indexPromise = null;
+  function loadIndex() {
+    if (!indexPromise) {
+      indexPromise = fetch('/api/search-index')
+        .then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
+        .catch((err) => {
+          console.error('[search] failed to load search index:', err);
+          indexError = true;
+          return [];
+        });
+    }
+    return indexPromise;
+  }
+
+  function filterItems(searchIndex, q, type) {
+    const ql = q.trim().toLowerCase();
+    return searchIndex.filter((entry) => {
+      if (type !== 'all' && entry.type !== type) return false;
+      if (!ql) return true;
+      if (entry.title.toLowerCase().includes(ql)) return true;
+      if (entry.categoryPath.some((s) => s.toLowerCase().includes(ql))) return true;
+      return false;
+    });
+  }
+
+  // Titles come from arbitrary filenames — build the card with DOM APIs, never
+  // innerHTML, so a file named e.g. "<img onerror=...>.jpg" can't inject markup.
+  function renderCard(entry) {
+    const a = document.createElement('a');
+    a.href = `/media/${entry.id}`;
+    a.className = 'media-card group block';
+
+    const thumbWrap = document.createElement('div');
+    thumbWrap.className = 'relative w-full aspect-video bg-netflix-card rounded overflow-hidden';
+
+    const img = document.createElement('img');
+    img.src = entry.thumbnailUrl;
+    img.alt = entry.title;
+    img.loading = 'lazy';
+    img.className = 'w-full h-full object-cover';
+    img.addEventListener('error', () => { img.src = '/placeholder-thumb.svg'; }, { once: true });
+
+    const badge = document.createElement('span');
+    badge.className = `badge badge--${entry.type} absolute top-1.5 left-1.5`;
+    badge.textContent = entry.type;
+    thumbWrap.append(img, badge);
+
+    const title = document.createElement('p');
+    title.className = 'mt-1.5 text-sm text-gray-300 truncate group-hover:text-white';
+    title.textContent = entry.title;
+
+    a.append(thumbWrap, title);
+    return a;
+  }
+
+  async function update() {
+    const q = input.value;
+    const isSearching = q.trim() || activeType !== 'all';
+
+    if (!isSearching) {
+      results.classList.add('hidden');
+      results.innerHTML = '';
+      emptyMsg.classList.add('hidden');
+      mainContent.classList.remove('hidden');
+      return;
+    }
+
+    mainContent.classList.add('hidden');
+    const searchIndex = await loadIndex();
+    const filtered = filterItems(searchIndex, q, activeType);
+
+    if (filtered.length === 0) {
+      results.classList.add('hidden');
+      results.innerHTML = '';
+      emptyMsg.textContent = indexError ? 'Search unavailable — could not load index.' : 'No results found.';
+      emptyMsg.classList.remove('hidden');
+    } else {
+      emptyMsg.classList.add('hidden');
+      results.innerHTML = '';
+      filtered.slice(0, 200).forEach((e) => results.appendChild(renderCard(e)));
+      results.classList.remove('hidden');
+    }
+  }
+
+  // Warm the index as soon as the user focuses search, before they type.
+  input.addEventListener('focus', loadIndex, { once: true });
+  input.addEventListener('input', update);
+
+  filterBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      activeType = btn.dataset.type;
+      filterBtns.forEach((b) => {
+        b.className = b.dataset.type === activeType
+          ? 'px-3 py-1.5 rounded text-sm font-medium transition-colors bg-netflix-red text-white'
+          : 'px-3 py-1.5 rounded text-sm font-medium transition-colors bg-netflix-card text-gray-400 hover:text-white hover:bg-netflix-hover';
+      });
+      update();
+    });
+  });
+
+</script>

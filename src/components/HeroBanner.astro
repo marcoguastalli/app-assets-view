@@ -1,0 +1,59 @@
+---
+import type { MediaItem } from '../lib/scanner.js';
+import { thumbnailUrl } from '../lib/thumbnails.js';
+import { formatDuration } from '../lib/metadata.js';
+
+interface Props {
+  item: MediaItem;
+}
+
+const { item } = Astro.props;
+const thumb = await thumbnailUrl(item);
+const mediaUrl = `/media/${item.id}`;
+
+const videoDuration =
+  item.type === 'video' && (item.metadata as { duration?: number }).duration
+    ? formatDuration((item.metadata as { duration: number }).duration)
+    : null;
+
+const pdfPages =
+  item.type === 'pdf' && (item.metadata as { pageCount?: number }).pageCount
+    ? `${(item.metadata as { pageCount: number }).pageCount} pages`
+    : null;
+
+const subtitle = videoDuration ?? pdfPages ?? null;
+---
+
+<section class="relative h-[28vw] max-h-[300px] min-h-[160px] overflow-hidden">
+  <!-- Blurred background fill for letterbox areas -->
+  <div
+    class="absolute inset-0 bg-cover bg-center scale-125"
+    style={`background-image: url('${thumb}'); filter: blur(40px); opacity: 0.3`}
+  ></div>
+  <!-- Actual image, contained so nothing is cut -->
+  <div
+    class="absolute inset-0 bg-contain bg-center bg-no-repeat"
+    style={`background-image: url('${thumb}')`}
+  >
+    <div class="absolute inset-0 bg-gradient-to-r from-netflix-bg via-netflix-bg/60 to-transparent" />
+    <div class="absolute inset-0 bg-gradient-to-t from-netflix-bg via-transparent to-transparent" />
+  </div>
+
+  <!-- Content -->
+  <div class="relative flex flex-col justify-end h-full px-8 pb-12 max-w-xl">
+    <span class={`badge badge--${item.type} w-fit mb-3`}>{item.type}</span>
+    <h1 class="text-3xl sm:text-5xl font-bold leading-tight mb-2">{item.title}</h1>
+    {subtitle && <p class="text-gray-300 text-sm mb-4">{subtitle}</p>}
+    <div class="flex gap-3">
+      <a
+        href={mediaUrl}
+        class="flex items-center gap-2 bg-white text-black font-semibold px-5 py-2.5 rounded hover:bg-gray-200 transition-colors"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M8 5v14l11-7z" />
+        </svg>
+        Open
+      </a>
+    </div>
+  </div>
+</section>

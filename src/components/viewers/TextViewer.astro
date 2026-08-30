@@ -1,0 +1,65 @@
+---
+import type { MediaItem } from '../../lib/scanner.js';
+
+interface Props {
+  item: MediaItem;
+}
+
+const { item } = Astro.props;
+const src = `/api/media/${item.id}`;
+---
+
+<div class="viewer-overlay flex-col" id="text-viewer" data-text-src={src}>
+  <!-- Top bar -->
+  <div class="absolute top-0 inset-x-0 flex items-center gap-3 px-4 py-3 bg-black/90 border-b border-gray-800 z-10">
+    <a href="/" class="text-gray-400 hover:text-white flex items-center gap-2 text-sm flex-none">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 12H5M12 19l-7-7 7-7" />
+      </svg>
+      Back
+    </a>
+    <h1 class="text-sm font-medium truncate flex-1">{item.title}</h1>
+  </div>
+
+  <!-- Content -->
+  <div class="flex-1 overflow-auto w-full pt-16 pb-4 px-4 sm:px-8">
+    <pre id="text-content" class="max-w-4xl mx-auto text-sm text-gray-200 whitespace-pre-wrap break-words font-mono">Loading…</pre>
+  </div>
+</div>
+
+<script>
+  // Rendered as plain text for every extension in this media type (.md
+  // included) — no markdown-to-HTML dependency, matches how the rest of
+  // the app avoids extra libraries for a single viewer.
+  const MAX_DISPLAY_CHARS = 2_000_000;
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') location.href = '/';
+  });
+
+  async function initText() {
+    const viewerEl = document.getElementById('text-viewer')!;
+    const contentEl = document.getElementById('text-content')!;
+    const src = viewerEl.dataset.textSrc ?? '';
+
+    const res = await fetch(src);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    let text = await res.text();
+
+    let truncated = false;
+    if (text.length > MAX_DISPLAY_CHARS) {
+      text = text.slice(0, MAX_DISPLAY_CHARS);
+      truncated = true;
+    }
+
+    contentEl.textContent = text + (truncated ? '\n\n… truncated (file is larger than the display limit)' : '');
+  }
+
+  initText().catch((err) => {
+    console.error('Text viewer failed to load:', err);
+    const contentEl = document.getElementById('text-content');
+    if (contentEl) {
+      contentEl.textContent = 'Failed to load file. Check the browser console for details.';
+    }
+  });
+</script>

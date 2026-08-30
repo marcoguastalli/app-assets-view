@@ -1,0 +1,23 @@
+services:
+  app:
+    build: .
+    ports:
+      # The app has NO authentication — this exposes your whole library to
+      # anyone who can reach the port. Keep it on a trusted network, or
+      # restrict to this machine with "127.0.0.1:2000:2000" and put a
+      # reverse proxy with auth in front for remote access.
+      - "2000:2000"
+    volumes:
+      - ~/opt/docker/assets:/media:ro
+      - cache:/cache:rw
+    environment:
+      MEDIA_DIR: /media
+      CACHE_DIR: /cache
+      SITE_TITLE: Assets View
+      PORT: 2000
+      MAX_CATEGORY_DEPTH: 6
+      THUMBNAIL_CONCURRENCY: 4
+    restart: unless-stopped
+
+volumes:
+  cache:

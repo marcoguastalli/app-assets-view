@@ -1,0 +1,152 @@
+---
+import type { MediaItem, PdfMeta } from '../../lib/scanner.js';
+
+interface Props {
+  item: MediaItem;
+}
+
+const { item } = Astro.props;
+const meta     = item.metadata as PdfMeta;
+const src      = `/api/media/${item.id}`;
+---
+
+<div class="viewer-overlay flex-col" id="pdf-viewer" data-pdf-src={src}>
+  <!-- Top bar -->
+  <div class="absolute top-0 inset-x-0 flex items-center gap-3 px-4 py-3 bg-black/90 border-b border-gray-800 z-10">
+    <a href="/" class="text-gray-400 hover:text-white flex items-center gap-2 text-sm flex-none">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 12H5M12 19l-7-7 7-7" />
+      </svg>
+      Back
+    </a>
+    <h1 class="text-sm font-medium truncate flex-1">{item.title}</h1>
+
+    <!-- Page controls -->
+    <div class="flex items-center gap-2 text-sm flex-none">
+      <button id="pdf-prev" class="text-gray-400 hover:text-white disabled:opacity-30" disabled>
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+      </button>
+      <span>
+        <span id="pdf-page-num">1</span>
+        <span class="text-gray-500"> / </span>
+        <span id="pdf-page-count">{meta.pageCount ?? '?'}</span>
+      </span>
+      <button id="pdf-next" class="text-gray-400 hover:text-white disabled:opacity-30">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 18l6-6-6-6" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Zoom controls -->
+    <div class="flex items-center gap-2 text-sm flex-none">
+      <button id="zoom-out" class="text-gray-400 hover:text-white">−</button>
+      <span id="zoom-level" class="text-gray-300 w-12 text-center">100%</span>
+      <button id="zoom-in"  class="text-gray-400 hover:text-white">+</button>
+    </div>
+
+    <!-- Fullscreen -->
+    <button id="pdf-fullscreen" class="text-gray-400 hover:text-white flex-none">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3" />
+      </svg>
+    </button>
+  </div>
+
+  <!-- Canvas area -->
+  <div class="flex-1 overflow-auto flex items-start justify-center pt-16 pb-4 bg-gray-900" id="pdf-container">
+    <canvas id="pdf-canvas" class="shadow-2xl"></canvas>
+  </div>
+</div>
+
+<script>
+  // Bundled from the pdfjs-dist package and served from our own origin —
+  // no third-party CDN script execution, and the viewer works offline.
+  import * as pdfjsLib from 'pdfjs-dist';
+  import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+
+  // Registered before the document loads so Escape works even while a large
+  // PDF is still downloading/parsing. Page navigation keys live in initPdf.
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !document.fullscreenElement) location.href = '/';
+  });
+
+  async function initPdf() {
+    const viewerEl = document.getElementById('pdf-viewer')!;
+    const pdfSrc = viewerEl.dataset.pdfSrc ?? '';
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+
+    const pdf = await pdfjsLib.getDocument({ url: pdfSrc }).promise;
+    const numPages = pdf.numPages;
+
+    const canvas    = document.getElementById('pdf-canvas');
+    const ctx       = canvas.getContext('2d');
+    const pageNum   = document.getElementById('pdf-page-num');
+    const pageCount = document.getElementById('pdf-page-count');
+    const prevBtn   = document.getElementById('pdf-prev');
+    const nextBtn   = document.getElementById('pdf-next');
+    const zoomInBtn = document.getElementById('zoom-in');
+    const zoomOutBtn= document.getElementById('zoom-out');
+    const zoomLabel = document.getElementById('zoom-level');
+    const fsBtn     = document.getElementById('pdf-fullscreen');
+
+    pageCount.textContent = String(numPages);
+    let currentPage = 1;
+    let scale = 1.0;
+    let rendering = false;
+
+    async function renderPage(num) {
+      if (rendering) return;
+      rendering = true;
+      const page = await pdf.getPage(num);
+      const viewport = page.getViewport({ scale });
+      canvas.width  = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      rendering = false;
+      pageNum.textContent = String(num);
+      prevBtn.disabled = num <= 1;
+      nextBtn.disabled = num >= numPages;
+    }
+
+    prevBtn.addEventListener('click', () => {
+      if (currentPage > 1) renderPage(--currentPage);
+    });
+    nextBtn.addEventListener('click', () => {
+      if (currentPage < numPages) renderPage(++currentPage);
+    });
+    zoomInBtn.addEventListener('click', () => {
+      scale = Math.min(scale + 0.25, 4);
+      zoomLabel.textContent = `${Math.round(scale * 100)}%`;
+      renderPage(currentPage);
+    });
+    zoomOutBtn.addEventListener('click', () => {
+      scale = Math.max(scale - 0.25, 0.25);
+      zoomLabel.textContent = `${Math.round(scale * 100)}%`;
+      renderPage(currentPage);
+    });
+    fsBtn.addEventListener('click', () => {
+      const el = document.getElementById('pdf-viewer');
+      if (!document.fullscreenElement) el.requestFullscreen();
+      else document.exitFullscreen();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   { if (currentPage > 1)        renderPage(--currentPage); }
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown')  { if (currentPage < numPages) renderPage(++currentPage); }
+    });
+
+    await renderPage(1);
+  }
+
+  initPdf().catch((err) => {
+    console.error('PDF viewer failed to initialize:', err);
+    const container = document.getElementById('pdf-container');
+    if (container) {
+      container.innerHTML = '<p style="color:#aaa;padding:2rem;text-align:center">Failed to load PDF viewer. Check the browser console for details.</p>';
+    }
+  });
+</script>

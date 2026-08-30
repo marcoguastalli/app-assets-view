@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+/* Tailwind 4 theme — replaces the old tailwind.config.mjs `extend`.
+   Each --color-* token generates the matching bg-/text-/border- utilities
+   (e.g. --color-netflix-bg -> bg-netflix-bg). */
+@theme {
+  --color-netflix-bg: #141414;
+  --color-netflix-card: #1f1f1f;
+  --color-netflix-hover: #2a2a2a;
+  --color-netflix-red: #e50914;
+  --color-netflix-gold: #f5c518;
+
+  --font-sans: Inter, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    @apply bg-netflix-bg text-white;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply min-h-screen antialiased;
+  }
+}
+
+@layer components {
+  .category-row {
+    @apply relative;
+  }
+
+  .category-row__scroll {
+    @apply flex gap-3 overflow-x-auto pb-2;
+    scrollbar-width: thin;
+    scrollbar-color: #555 transparent;
+  }
+
+  .category-row__scroll::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .category-row__scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .category-row__scroll::-webkit-scrollbar-thumb {
+    @apply bg-gray-600 rounded;
+  }
+
+  .media-card {
+    @apply flex-none w-40 sm:w-48 lg:w-56 cursor-pointer;
+    transition: transform 0.2s ease, z-index 0s 0.2s;
+  }
+
+  .media-card:hover {
+    @apply z-10;
+    transform: scale(1.08);
+    transition: transform 0.2s ease;
+  }
+
+  .badge {
+    @apply text-xs font-semibold px-1.5 py-0.5 rounded uppercase tracking-wide;
+  }
+
+  .badge--image  { @apply bg-blue-600; }
+  .badge--video  { @apply bg-red-600; }
+  .badge--pdf    { @apply bg-yellow-600 text-black; }
+  .badge--text   { @apply bg-purple-600; }
+}
+
+/* Fullscreen viewer overlay */
+.viewer-overlay {
+  @apply fixed inset-0 bg-black z-50 flex items-center justify-center;
+}

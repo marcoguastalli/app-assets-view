@@ -1,0 +1,36 @@
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.claude
+~
+.DS_Store
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.astro/
+
+# Media and cache (local only) — anchored to the repo root so they don't
+# swallow source directories like src/pages/media/
+/media/
+/cache/
+.cache/
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test artifacts
+test-results/
+playwright-report/

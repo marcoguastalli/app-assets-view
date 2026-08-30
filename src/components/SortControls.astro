@@ -1,0 +1,56 @@
+---
+// Renders sort toggle buttons and the JS that re-orders every [data-sortable]
+// container on the page. Works for both carousel rows and grid layouts.
+---
+
+<div class="flex gap-1" id="sort-controls">
+  {([['recent', 'Recent'], ['az', 'A→Z'], ['za', 'Z→A']] as const).map(([s, label]) => (
+    <button
+      data-sort={s}
+      class="px-3 py-1.5 rounded text-sm font-medium transition-colors bg-netflix-card text-gray-400 hover:text-white hover:bg-netflix-hover"
+    >
+      {label}
+    </button>
+  ))}
+</div>
+
+<script>
+  import { sortItems } from '../lib/sort.ts';
+  import type { SortOrder } from '../lib/sort.ts';
+
+  const SORT_KEY = 'app-assets-view-sort';
+  const sortBtns = document.querySelectorAll<HTMLButtonElement>('#sort-controls button');
+  let activeSort: SortOrder = (localStorage.getItem(SORT_KEY) as SortOrder) ?? 'recent';
+
+  function applySortStyles() {
+    sortBtns.forEach((b) => {
+      b.className = b.dataset.sort === activeSort
+        ? 'px-3 py-1.5 rounded text-sm font-medium transition-colors bg-netflix-red text-white'
+        : 'px-3 py-1.5 rounded text-sm font-medium transition-colors bg-netflix-card text-gray-400 hover:text-white hover:bg-netflix-hover';
+    });
+  }
+
+  function sortContainers() {
+    document.querySelectorAll<HTMLElement>('[data-sortable]').forEach((container) => {
+      const cards = Array.from(container.querySelectorAll<HTMLElement>('[data-title]'));
+      const withData = cards.map((el) => ({
+        title: el.dataset.title ?? '',
+        mtime: Number(el.dataset.mtime ?? 0),
+        el,
+      }));
+      sortItems(withData, activeSort).forEach(({ el }) => container.appendChild(el));
+    });
+  }
+
+  sortBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      activeSort = btn.dataset.sort as SortOrder;
+      localStorage.setItem(SORT_KEY, activeSort);
+      applySortStyles();
+      sortContainers();
+    });
+  });
+
+  applySortStyles();
+  sortContainers();
+</script>
