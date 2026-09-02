@@ -295,6 +295,16 @@ function setupWatcher(): void {
     ignored: (watchedPath: string) => isCacheDirPath(watchedPath),
     depth: MAX_DEPTH,
     awaitWriteFinish: { stabilityThreshold: 1000, pollInterval: 200 },
+    // Native fs events (fsevents/inotify) are unreliable through Docker bind
+    // mounts — in practice this drops addDir+add bursts for a brand-new
+    // nested subfolder (e.g. mkdir + copy a file into it in one go), leaving
+    // the new folder unindexed with no error until the next full restart.
+    // Polling sidesteps the OS event layer entirely at the cost of some CPU;
+    // 1s is well above the debounce/stability windows above so it doesn't
+    // change perceived latency in practice.
+    usePolling: true,
+    interval: 1000,
+    binaryInterval: 1000,
   });
 
   // Filesystem events arrive in bursts (e.g. copying a folder fires one event
