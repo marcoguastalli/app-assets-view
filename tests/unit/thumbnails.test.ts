@@ -20,6 +20,7 @@ function makeItem(partialPath: string, type: 'image' | 'video' | 'pdf' = 'image'
     absolutePath: `/media/${partialPath}`,
     type,
     mtime: Date.now(),
+    indexedAt: Date.now(),
     size: 1024,
     categoryPath: [],
     metadata: {},

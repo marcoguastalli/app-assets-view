@@ -3,10 +3,10 @@ import { filterIndex } from '../../src/lib/search.js';
 import type { SearchIndexEntry } from '../../src/lib/search.js';
 
 const entries: SearchIndexEntry[] = [
-  { id: '1', title: 'Sunset in Italy', type: 'image', categoryPath: ['Photography', 'Italy 2024'], thumbnailUrl: '', mtime: 1000 },
-  { id: '2', title: 'Mountain Hike',   type: 'video', categoryPath: ['Videos', 'Outdoors'],        thumbnailUrl: '', mtime: 2000 },
-  { id: '3', title: 'Annual Report',   type: 'pdf',   categoryPath: ['Documents'],                  thumbnailUrl: '', mtime: 3000 },
-  { id: '4', title: 'Beach Sunset',    type: 'image', categoryPath: ['Photography', 'Summer'],      thumbnailUrl: '', mtime: 4000 },
+  { id: '1', title: 'Sunset in Italy', type: 'image', categoryPath: ['Photography', 'Italy 2024'], thumbnailUrl: '', mtime: 1000, indexedAt: 1000 },
+  { id: '2', title: 'Mountain Hike',   type: 'video', categoryPath: ['Videos', 'Outdoors'],        thumbnailUrl: '', mtime: 2000, indexedAt: 2000 },
+  { id: '3', title: 'Annual Report',   type: 'pdf',   categoryPath: ['Documents'],                  thumbnailUrl: '', mtime: 3000, indexedAt: 3000 },
+  { id: '4', title: 'Beach Sunset',    type: 'image', categoryPath: ['Photography', 'Summer'],      thumbnailUrl: '', mtime: 4000, indexedAt: 4000 },
 ];
 
 describe('filterIndex', () => {
