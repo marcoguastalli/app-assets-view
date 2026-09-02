@@ -7,6 +7,7 @@ export interface SearchIndexEntry {
   categoryPath: string[];
   thumbnailUrl: string;
   mtime: number;
+  indexedAt: number;
 }
 
 export function buildSearchIndex(items: MediaItem[]): SearchIndexEntry[] {
@@ -17,6 +18,7 @@ export function buildSearchIndex(items: MediaItem[]): SearchIndexEntry[] {
     categoryPath: item.categoryPath,
     thumbnailUrl: `/api/thumbnail/${item.id}`,
     mtime: item.mtime,
+    indexedAt: item.indexedAt,
   }));
 }
 
