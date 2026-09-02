@@ -8,7 +8,7 @@ import { ready, getMediaIndex, getRecentItems } from '../lib/scanner.js';
 await ready;
 
 const { rootCategories, allItems } = getMediaIndex();
-const recentItems  = getRecentItems(20);
+const recentItems  = [...allItems].sort((a, b) => b.indexedAt - a.indexedAt).slice(0, 20);
 const images       = allItems.filter((i) => i.type === 'image');
 const heroItem     = images.length > 0
   ? images[Math.floor(Math.random() * images.length)]

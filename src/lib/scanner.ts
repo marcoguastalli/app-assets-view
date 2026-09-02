@@ -38,6 +38,7 @@ export interface MediaItem {
   absolutePath: string;
   type: MediaType;
   mtime: number;
+  indexedAt: number;
   size: number;
   categoryPath: string[];
   metadata: ImageMeta | VideoMeta | PdfMeta | TextMeta;
@@ -190,6 +191,7 @@ async function scanDir(
             absolutePath: fullPath,
             type: mediaType,
             mtime: stats.mtimeMs,
+            indexedAt: Date.now(),
             size: stats.size,
             categoryPath,
             metadata,
@@ -260,6 +262,7 @@ async function buildIndex(): Promise<void> {
       absolutePath: fullPath,
       type: mediaType,
       mtime: stats.mtimeMs,
+      indexedAt: Date.now(),
       size: stats.size,
       categoryPath: [],
       metadata,
@@ -329,5 +332,5 @@ export function getCategoryBySlug(slug: string): Category | undefined {
 }
 
 export function getRecentItems(limit = 20): MediaItem[] {
-  return index.allItems.slice(0, limit);
+  return [...index.allItems].sort((a, b) => b.indexedAt - a.indexedAt).slice(0, limit);
 }
