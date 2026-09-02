@@ -50,7 +50,17 @@ Native binaries must be on `PATH` or video/PDF features silently degrade: `ffmpe
 
 Behavior is driven by env vars (see [.env.example](.env.example) / README): `MEDIA_DIR`, `CACHE_DIR`, `SITE_TITLE`, `PORT`, `MAX_CATEGORY_DEPTH` (scan depth, default 6), `THUMBNAIL_CONCURRENCY`. In Docker Compose, `media/` is mounted read-only and `cache/` read-write. TypeScript path alias `@/*` -> `./src/*`.
 
+**⚠️  Important: The `dev` script must use `dotenv` to load `.env` at process start.** Environment variables are read at module load time (before Astro loads `.env`), so the scanner module must have access to `process.env.MEDIA_DIR`. The dev script is configured as `"dev": "dotenv -- astro dev"`. If this prefix is removed, `MEDIA_DIR` will default to `./media`, the scanner will find no files, and opening any image will return 404. This has been a recurring issue; a warning is logged if `MEDIA_DIR` is still the default value.
+
 **Styling is Tailwind 4** wired in as a Vite plugin (`@tailwindcss/vite` in [astro.config.mjs](astro.config.mjs)) — there is no `tailwind.config.mjs` and no `@astrojs/tailwind` integration. The theme (the `netflix-*` colors, font) lives in the `@theme` block of [src/styles/global.css](src/styles/global.css); add design tokens there as `--color-*` / `--font-*` variables, not in a JS config.
+
+## Troubleshooting
+
+**"No media found" / 404 on image open:**
+- Check the server logs for `[scanner] ⚠️  MEDIA_DIR is using default ./media`
+- This means env vars didn't load at startup (recurring issue, fixed 3+ times)
+- Verify package.json `dev` script is: `"dev": "dotenv -- astro dev"` (not just `"astro dev"`)
+- The `dotenv` prefix is required because the scanner module reads `process.env.MEDIA_DIR` at module load time, before Astro loads `.env`
 
 ## Tests
 
