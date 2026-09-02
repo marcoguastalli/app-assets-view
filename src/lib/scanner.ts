@@ -216,10 +216,18 @@ async function scanDir(
 }
 
 async function buildIndex(): Promise<void> {
+  if (MEDIA_DIR === './media') {
+    console.warn(
+      '[scanner] ⚠️  MEDIA_DIR is using default ./media — env var not loaded. ' +
+      'If this is unintended, ensure dev script uses: "dev": "dotenv -- astro dev"'
+    );
+  }
+  console.log('[scanner] building index from', MEDIA_DIR);
   const rootEntries = await readdir(MEDIA_DIR, { withFileTypes: true }).catch(() => []);
   const rootDirs = rootEntries.filter(
     (e) => e.isDirectory() && !isCacheDirPath(path.join(MEDIA_DIR, e.name)),
   );
+
 
   const categories = await Promise.all(
     rootDirs.map((d) => scanDir(path.join(MEDIA_DIR, d.name), [d.name], 1)),
