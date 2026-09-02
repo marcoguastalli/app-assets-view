@@ -139,6 +139,7 @@ async function scanDir(
   dirPath: string,
   categoryPath: string[],
   depth: number,
+  prevItemsById: Map<string, MediaItem>,
 ): Promise<Category> {
   const name = path.basename(dirPath);
   const slug = categoryPath.map(encodeURIComponent).join('/');
@@ -167,7 +168,7 @@ async function scanDir(
     if (entry.isDirectory() && depth < MAX_DEPTH) {
       if (isCacheDirPath(fullPath)) continue;
       tasks.push(
-        scanDir(fullPath, [...categoryPath, entry.name], depth + 1).then((sub) => {
+        scanDir(fullPath, [...categoryPath, entry.name], depth + 1, prevItemsById).then((sub) => {
           category.subcategories.push(sub);
         }),
       );
@@ -184,6 +185,13 @@ async function scanDir(
           const id = makeId(relativePath);
           const metadata = await extractMetadata(fullPath, mediaType).catch(() => ({}));
 
+          // A file already present in the previous index keeps its original
+          // indexedAt — otherwise every full rebuild (which runs on *any*
+          // filesystem change, see setupWatcher) would restamp Date.now() on
+          // the entire library, making "Recently Added" reflect scan-order
+          // jitter instead of genuine recency.
+          const indexedAt = prevItemsById.get(id)?.indexedAt ?? Date.now();
+
           const item: MediaItem = {
             id,
             title: titleFromFilename(entry.name),
@@ -191,7 +199,7 @@ async function scanDir(
             absolutePath: fullPath,
             type: mediaType,
             mtime: stats.mtimeMs,
-            indexedAt: Date.now(),
+            indexedAt,
             size: stats.size,
             categoryPath,
             metadata,
@@ -230,9 +238,12 @@ async function buildIndex(): Promise<void> {
     (e) => e.isDirectory() && !isCacheDirPath(path.join(MEDIA_DIR, e.name)),
   );
 
+  // Snapshot before itemsById is reassigned below, so already-known items
+  // carry their original indexedAt forward into the rebuilt index.
+  const prevItemsById = itemsById;
 
   const categories = await Promise.all(
-    rootDirs.map((d) => scanDir(path.join(MEDIA_DIR, d.name), [d.name], 1)),
+    rootDirs.map((d) => scanDir(path.join(MEDIA_DIR, d.name), [d.name], 1, prevItemsById)),
   );
 
   const allItems: MediaItem[] = [];
@@ -262,7 +273,7 @@ async function buildIndex(): Promise<void> {
       absolutePath: fullPath,
       type: mediaType,
       mtime: stats.mtimeMs,
-      indexedAt: Date.now(),
+      indexedAt: prevItemsById.get(id)?.indexedAt ?? Date.now(),
       size: stats.size,
       categoryPath: [],
       metadata,
